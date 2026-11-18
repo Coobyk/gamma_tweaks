@@ -1,0 +1,42 @@
+id = "gamma_tweaks"
+name = "Gamma Tweaks"
+version = "0.2.0"
+description = "Gamma slider, fullbright, sunlight and a light-level overlay."
+authors = []
+api = "0.2"
+side = "client"
+capabilities = ["registries"]
+
+[native]
+game = "26.3"
+horizon = "0b14f8acfd97fa2c750e42795249dcc981178ca4"
+mixins = "e59da9094f0c2fdda6c627fe9eff22dec6a906f0"
+
+[[native.module]]
+id = "runtime"
+file = "crates/horizon-client/src/game.rs"
+name = "umbx_gamma"
+source = "src/runtime.rs"
+
+[[native.module]]
+id = "glue"
+file = "crates/horizon-client/src/game.rs"
+name = "umbx_gamma_glue"
+source = "src/glue.rs"
+
+[[native.mixin]]
+id = "tick"
+target = "horizon_client::game::native_hooks::client_tick_pre::Game::native_client_tick_pre"
+kind = "HEAD"
+helper = "src/mixins/tick.rs"
+bindings = [{ name = "game", ty = "&mut Game<'_>", value = "&mut *self" }]
+
+[[native.mixin]]
+id = "sky"
+target = "horizon_client::game::end::Game<'_>::end_flash_sky"
+kind = "HEAD"
+helper = "src/mixins/sky.rs"
+bindings = [
+  { name = "game", ty = "&Game<'_>", value = "&*self" },
+  { name = "sky", ty = "&mut horizon_client::environment::Sky", value = "&mut *sky" },
+]

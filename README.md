@@ -1,46 +1,45 @@
 # Gamma Tweaks
 
-A [Horizon](https://github.com/horizon-rust/horizon) native mod for brightness
-control and a light-level overlay.
+A native mod for [Horizon](https://github.com/horizon-rust/horizon) 26.3:
+brightness control and a light-level overlay.
 
 ## Features
 
-A settings page on **Horizon Settings → Gamma Tweaks** (also reachable as
-buttons under **Options → Mods → Gamma Tweaks**):
+All options live on the game's **Options → Mods → Gamma Tweaks** page:
 
-- **Gamma** — a slider from `0%` (fully dark) to `300%` (three times vanilla
-  Bright), synced with the real Brightness option. **Follow video Brightness**
-  hands control back to the vanilla slider.
+- **Gamma** — a `0%`–`300%` slider for the lightmap's gamma. With no value
+  saved it follows Video Settings' Brightness.
 - **Fullbright** — the game's built-in fullbright, from here.
 - **Sunlight** — off removes the sky's light contribution (block light and the
   ambient floor remain; the sky itself is untouched).
-- **Light-level overlay** — draws the light level (`max` of block and sky
-  light) on the top face of solid blocks around you: red at `0` where mobs
-  can spawn, amber `1–7`, green `8+`. Options for **only where mobs spawn**
-  and a radius of `8`/`16`/`24`/`32` blocks.
+- **Light-level overlay** — shows the light level (`max` of block and sky
+  light) on top of solid blocks around you: red at `0` where mobs can spawn,
+  amber `1–7`, green `8+`. Options for **only where mobs spawn** and an
+  `8`/`16`/`24`/`32` block radius.
 
-Settings persist per instance under `.horizon-mod-data/gamma_tweaks/`.
+Settings are Horizon's own per-mod settings, under
+`horizon-mods/.horizon-mod-data/gamma_tweaks/`.
 
 ## Layout
 
-A mixin bundle (`mixins/gamma_tweaks/`, `horizon-mixin.toml`):
-
-- `runtime.rs` — the mod's state: a per-frame `sync` loads it, applies the
-  gamma override to `settings.gamma`/`renderer.gamma` and the fullbright flag
-  to `settings.extras.fullbright`, and persists changes.
-- `page.rs` — a registered `horizon_hooks::pages::Page` (the slider rows);
-  the engine rebuilds them from the runtime's statics.
-- `overlay.rs` — `native_world_submit` draws the numbers as world text.
-- `glue.rs` — hook glue: `native_frame` (register + sync), `end_flash_sky`
-  (sunlight), `native_world_submit`, the mod listing and the buttons page.
-- `hooks/` — one thin wrapper per injection.
+- `horizon-mod.toml` — the new native mod manifest (API `0.2`, pinned to
+  Horizon `0b14f8ac…` and horizon-mixins `e59da909…`).
+- `src/lib.rs` — the mod crate: settings registration and the world-draw hook.
+- `src/runtime.rs`, `src/glue.rs` — support modules injected into the game's
+  `game` module; the state, per-tick sync and sky-light hook.
+- `src/mixins/` — the two `[[native.mixin]]` helpers:
+  `native_client_tick_pre` (sync) and `end_flash_sky` (sunlight).
+- `src/overlay.rs` — the light-level overlay's digits and frame state.
 
 ## Building
 
 ```sh
-horizon-mixins plan --workspace <horizon source> --mods mixins/gamma_tweaks --out plan.json
-horizon-mixins apply --workspace <horizon source> --mods mixins/gamma_tweaks --out <staged>
+horizon-launcher native-build . --trust-native-code --version nightly-2026-11-18-0b14f8a
 ```
 
-or drop the bundle folder on `horizon-launcher native-build <folder>
---trust-native-code`. Target revision in `compatibility.json`.
+The old `native_frame` hook is gone, so the frame sync now runs on
+`native_client_tick_pre`. The old custom settings page and the hand-built mod
+listing are gone too: Horizon registers the settings rows from `Hooks::register`
+and takes the mod list from the manifest. The world-text API was removed, so
+the overlay's numbers are now drawn as seven-segment world lines with at most
+128 markers per view.
