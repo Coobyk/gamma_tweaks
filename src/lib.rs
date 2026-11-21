@@ -37,44 +37,48 @@ impl Hooks for Mod {
     fn register(&self, reg: &mut dyn Registrar, _: &RegistrationContext) {
         // Gamma is stored in the same 0..3 range the old slider used; no file
         // yet means "follow the video Brightness setting".
-        let _ = reg.register_setting(SettingSpec::range(
-            "gamma",
-            "gamma_tweaks.setting.gamma",
-            0.0,
-            3.0,
-            0.05,
-            1.0,
-        ));
-        let _ = reg.register_setting(SettingSpec::toggle(
-            "fullbright",
-            "gamma_tweaks.setting.fullbright",
-            false,
-        ));
-        let _ = reg.register_setting(SettingSpec::toggle(
-            "sunlight",
-            "gamma_tweaks.setting.sunlight",
-            true,
-        ));
-        let _ = reg.register_setting(SettingSpec::toggle(
-            "overlay",
-            "gamma_tweaks.setting.overlay",
-            false,
-        ));
-        let _ = reg.register_setting(SettingSpec::toggle(
-            "spawnable_only",
-            "gamma_tweaks.setting.spawnable_only",
-            false,
-        ));
-        let _ = reg.register_setting(SettingSpec::choice(
-            "radius",
-            "gamma_tweaks.setting.radius",
-            [
-                "gamma_tweaks.radius.8",
-                "gamma_tweaks.radius.16",
-                "gamma_tweaks.radius.24",
-                "gamma_tweaks.radius.32",
-            ],
-            1,
-        ));
+        let _ = reg.register_setting(
+            SettingSpec::range(
+                "gamma",
+                "gamma_tweaks.setting.gamma",
+                0.0,
+                3.0,
+                0.05,
+                1.0,
+            )
+            .tooltip("gamma_tweaks.setting.gamma.tooltip"),
+        );
+        let _ = reg.register_setting(
+            SettingSpec::toggle("fullbright", "gamma_tweaks.setting.fullbright", false)
+                .tooltip("gamma_tweaks.setting.fullbright.tooltip"),
+        );
+        let _ = reg.register_setting(
+            SettingSpec::toggle("sunlight", "gamma_tweaks.setting.sunlight", true)
+                .tooltip("gamma_tweaks.setting.sunlight.tooltip"),
+        );
+        let _ = reg.register_setting(
+            SettingSpec::toggle("overlay", "gamma_tweaks.setting.overlay", false)
+                .tooltip("gamma_tweaks.setting.overlay.tooltip"),
+        );
+        let _ = reg.register_setting(
+            SettingSpec::toggle("spawnable_only", "gamma_tweaks.setting.spawnable_only", false)
+                .tooltip("gamma_tweaks.setting.spawnable_only.tooltip"),
+        );
+        let _ = reg.register_setting(
+            SettingSpec::choice(
+                "radius",
+                "gamma_tweaks.setting.radius",
+                // Choice order is positionally bound to `RADII` in the
+                // game-side runtime (`src/runtime.rs`); keep them aligned.
+                [
+                    "gamma_tweaks.radius.8",
+                    "gamma_tweaks.radius.16",
+                    "gamma_tweaks.radius.24",
+                    "gamma_tweaks.radius.32",
+                ],
+                1,
+            )
+            .tooltip("gamma_tweaks.setting.radius.tooltip"),
+        );
     }
 }

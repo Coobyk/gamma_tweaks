@@ -3,7 +3,7 @@ use super::Game;
 
 /// While a world is playing: keep the statics on the game — the override owns
 /// `settings.gamma` and the renderer's, our flag owns `extras.fullbright` — and
-/// persist what the settings page changed.
+/// pick up what the settings page changed.
 pub(super) fn tick(game: &mut Game<'_>) {
     if !game.native_window() || !game.playing() {
         ::gamma_tweaks::overlay::set(Vec::new());

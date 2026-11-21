@@ -1,0 +1,18 @@
+{
+  "gamma_tweaks.setting.gamma": "Gamma",
+  "gamma_tweaks.setting.gamma.tooltip": "Overrides the video Brightness option, reaching past vanilla's Bright.",
+  "gamma_tweaks.setting.fullbright": "Fullbright",
+  "gamma_tweaks.setting.fullbright.tooltip": "Treats every block as if it is fully lit.",
+  "gamma_tweaks.setting.sunlight": "Sunlight",
+  "gamma_tweaks.setting.sunlight.tooltip": "Turn off to remove the sun's light, like being underground.",
+  "gamma_tweaks.setting.overlay": "Light level overlay",
+  "gamma_tweaks.setting.overlay.tooltip": "Draws the light level on top of the blocks around you.",
+  "gamma_tweaks.setting.spawnable_only": "Only spawnable blocks",
+  "gamma_tweaks.setting.spawnable_only.tooltip": "Shows only blocks dark enough for mobs to spawn on.",
+  "gamma_tweaks.setting.radius": "Overlay radius",
+  "gamma_tweaks.setting.radius.tooltip": "How far around you the overlay reaches.",
+  "gamma_tweaks.radius.8": "8 blocks",
+  "gamma_tweaks.radius.16": "16 blocks",
+  "gamma_tweaks.radius.24": "24 blocks",
+  "gamma_tweaks.radius.32": "32 blocks"
+}

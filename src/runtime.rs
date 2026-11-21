@@ -2,8 +2,6 @@ use super::Game;
 use std::sync::Mutex;
 
 pub(super) const ID: &str = "gamma_tweaks";
-pub(super) const VERSION: &str = "0.2.0";
-pub(super) const DESCRIPTION: &str = "Gamma slider, fullbright, sunlight and a light-level overlay.";
 /// Vanilla's Brightness is 0..1; the override reaches past Bright.
 pub(super) const MAX_GAMMA: f32 = 3.0;
 /// Overlay radii the settings cycle, in blocks.
@@ -14,16 +12,21 @@ pub(super) const MAX_MARKERS: usize = 128;
 const BELOW: i32 = 5;
 const ABOVE: i32 = 9;
 
+/// Defaults `STATE` starts from and `load` falls back on for a missing key, so
+/// a fresh launch and an absent file agree. (`fullbright` is seeded from the
+/// game's own extras flag instead, and `radius` indexes `RADII`.)
+const DEFAULT_SUNLIGHT: bool = true;
+const DEFAULT_OVERLAY: bool = false;
+const DEFAULT_SPAWNABLE_ONLY: bool = false;
+const DEFAULT_RADIUS: usize = 1;
+
 /// The mod's state. The registered settings page's rows get no `Game`, so the
 /// state lives here: `sync` loads it from Horizon's per-mod settings once,
-/// applies it to the game every tick and writes back what the page changed.
+/// applies it to the game every tick and re-reads what the page changed.
 struct State {
     loaded: bool,
     /// The gamma override; `None` follows Video Settings' Brightness.
     gamma: Option<f32>,
-    /// The Brightness option's value while the override is off (the slider's
-    /// value then), refreshed each tick.
-    video_gamma: f32,
     fullbright: bool,
     sunlight: bool,
     overlay: bool,
@@ -31,20 +34,16 @@ struct State {
     spawnable_only: bool,
     /// Index into `RADII`.
     radius: usize,
-    /// A setter ran; `sync` writes the settings and clears it.
-    dirty: bool,
 }
 
 static STATE: Mutex<State> = Mutex::new(State {
     loaded: false,
     gamma: None,
-    video_gamma: 1.0,
     fullbright: false,
-    sunlight: true,
-    overlay: false,
-    spawnable_only: false,
-    radius: 1,
-    dirty: false,
+    sunlight: DEFAULT_SUNLIGHT,
+    overlay: DEFAULT_OVERLAY,
+    spawnable_only: DEFAULT_SPAWNABLE_ONLY,
+    radius: DEFAULT_RADIUS,
 });
 
 fn read<T>(f: impl FnOnce(&State) -> T) -> T {
@@ -55,73 +54,17 @@ fn update(f: impl FnOnce(&mut State)) {
     f(&mut STATE.lock().unwrap_or_else(|e| e.into_inner()));
 }
 
-fn write(f: impl FnOnce(&mut State)) {
-    let mut s = STATE.lock().unwrap_or_else(|e| e.into_inner());
-    f(&mut s);
-    s.dirty = true;
-}
-
-/// The override, `None` while it follows the Brightness option.
-pub(super) fn gamma() -> Option<f32> {
-    read(|s| s.gamma)
-}
-/// The gamma the lightmap gets: the override or the Brightness option.
-pub(super) fn effective_gamma() -> f32 {
-    read(|s| s.gamma.unwrap_or(s.video_gamma))
-}
-pub(super) fn set_gamma(value: Option<f32>) {
-    write(|s| s.gamma = value.map(|v| v.clamp(0.0, MAX_GAMMA)));
-}
-pub(super) fn fullbright() -> bool {
-    read(|s| s.fullbright)
-}
-pub(super) fn set_fullbright(on: bool) {
-    write(|s| s.fullbright = on);
-}
 pub(super) fn sunlight() -> bool {
     read(|s| s.sunlight)
-}
-pub(super) fn set_sunlight(on: bool) {
-    write(|s| s.sunlight = on);
 }
 pub(super) fn overlay() -> bool {
     read(|s| s.overlay)
 }
-pub(super) fn set_overlay(on: bool) {
-    write(|s| s.overlay = on);
-}
 pub(super) fn spawnable_only() -> bool {
     read(|s| s.spawnable_only)
 }
-pub(super) fn set_spawnable_only(on: bool) {
-    write(|s| s.spawnable_only = on);
-}
 pub(super) fn radius() -> i32 {
     read(|s| RADII[s.radius])
-}
-pub(super) fn cycle_radius(back: bool) {
-    write(|s| {
-        s.radius = if back {
-            (s.radius + RADII.len() - 1) % RADII.len()
-        } else {
-            (s.radius + 1) % RADII.len()
-        };
-    });
-}
-/// Everything a settings page draws: `(override, effective, fullbright,
-/// sunlight, overlay, spawnable_only, radius)`.
-pub(super) fn page_state() -> (Option<f32>, f32, bool, bool, bool, bool, i32) {
-    read(|s| {
-        (
-            s.gamma,
-            s.gamma.unwrap_or(s.video_gamma),
-            s.fullbright,
-            s.sunlight,
-            s.overlay,
-            s.spawnable_only,
-            RADII[s.radius],
-        )
-    })
 }
 
 /// `true` while the string is a registered toggle's stored form.
@@ -129,9 +72,6 @@ fn toggle(v: Option<String>) -> Option<bool> {
     match v.as_deref() {
         Some("true") => Some(true),
         Some("false") => Some(false),
-        // Older files wrote 1/0.
-        Some("1") => Some(true),
-        Some("0") => Some(false),
         _ => None,
     }
 }
@@ -146,20 +86,53 @@ fn load(game: &Game<'_>, s: &mut State) {
         .map(|v| v.clamp(0.0, MAX_GAMMA));
     s.fullbright = toggle(game.setting(ID, "fullbright"))
         .unwrap_or_else(|| game.settings.extras.fullbright);
-    s.sunlight = toggle(game.setting(ID, "sunlight")).unwrap_or(true);
-    s.overlay = toggle(game.setting(ID, "overlay")).unwrap_or(false);
-    s.spawnable_only = toggle(game.setting(ID, "spawnable_only")).unwrap_or(false);
+    s.sunlight = toggle(game.setting(ID, "sunlight")).unwrap_or(DEFAULT_SUNLIGHT);
+    s.overlay = toggle(game.setting(ID, "overlay")).unwrap_or(DEFAULT_OVERLAY);
+    s.spawnable_only =
+        toggle(game.setting(ID, "spawnable_only")).unwrap_or(DEFAULT_SPAWNABLE_ONLY);
     s.radius = game
         .setting(ID, "radius")
         .and_then(|v| v.parse::<usize>().ok())
         .filter(|i| *i < RADII.len())
-        .unwrap_or(1);
-    s.video_gamma = game.settings.gamma;
+        .unwrap_or(DEFAULT_RADIUS);
     s.loaded = true;
 }
 
-/// Once a client tick, while a world is playing: load once, keep `settings`
-/// and the renderer on our values and write back anything the page changed.
+/// Re-read what the settings page wrote. Missing keys keep the current value.
+fn refresh(game: &Game<'_>, s: &mut State) {
+    if let Some(v) = game.setting(ID, "gamma") {
+        s.gamma = if v.is_empty() {
+            None
+        } else {
+            v.parse::<f32>()
+                .ok()
+                .filter(|v| v.is_finite())
+                .map(|v| v.clamp(0.0, MAX_GAMMA))
+        };
+    }
+    if let Some(v) = toggle(game.setting(ID, "fullbright")) {
+        s.fullbright = v;
+    }
+    if let Some(v) = toggle(game.setting(ID, "sunlight")) {
+        s.sunlight = v;
+    }
+    if let Some(v) = toggle(game.setting(ID, "overlay")) {
+        s.overlay = v;
+    }
+    if let Some(v) = toggle(game.setting(ID, "spawnable_only")) {
+        s.spawnable_only = v;
+    }
+    if let Some(i) = game
+        .setting(ID, "radius")
+        .and_then(|v| v.parse::<usize>().ok())
+        .filter(|i| *i < RADII.len())
+    {
+        s.radius = i;
+    }
+}
+
+/// Once a client tick, while a world is playing: load once and keep
+/// `settings` and the renderer on our values.
 pub(super) fn sync(game: &mut Game<'_>) {
     {
         let mut s = STATE.lock().unwrap_or_else(|e| e.into_inner());
@@ -175,13 +148,12 @@ pub(super) fn sync(game: &mut Game<'_>) {
         if let Some(r) = game.renderer.as_mut() {
             r.gamma = v;
         }
-    } else {
-        // The Brightness option moves freely; track it for the slider.
-        update(|s| s.video_gamma = game.settings.gamma);
     }
     game.settings.extras.fullbright = fullbright;
     game.hold_fullbright();
-    persist(game);
+    // The settings page stores straight to the per-mod files; pull them back
+    // every tick so a click takes effect without a restart.
+    update(|s| refresh(game, s));
 }
 
 /// Scan the spaces above solid blocks near the player for the light-level
@@ -241,38 +213,4 @@ pub(super) fn overlay_markers(game: &Game<'_>) -> Vec<::gamma_tweaks::overlay::M
         }
     }
     out
-}
-
-fn persist(game: &Game<'_>) {
-    let snap = read(|s| {
-        s.dirty.then_some((
-            s.gamma,
-            s.fullbright,
-            s.sunlight,
-            s.overlay,
-            s.spawnable_only,
-            s.radius,
-        ))
-    });
-    let Some((gamma, fullbright, sunlight, overlay, spawnable_only, radius)) = snap else {
-        return;
-    };
-    game.set_setting(
-        ID,
-        "gamma",
-        &gamma.map_or_else(String::new, |v| v.to_string()),
-    );
-    game.set_setting(ID, "fullbright", if fullbright { "true" } else { "false" });
-    game.set_setting(ID, "sunlight", if sunlight { "true" } else { "false" });
-    game.set_setting(ID, "overlay", if overlay { "true" } else { "false" });
-    game.set_setting(
-        ID,
-        "spawnable_only",
-        if spawnable_only { "true" } else { "false" },
-    );
-    game.set_setting(ID, "radius", &radius.to_string());
-    if let Some(dir) = Game::options_path().parent().map(|p| p.to_path_buf()) {
-        game.settings.extras.save(&dir);
-    }
-    update(|s| s.dirty = false);
 }
